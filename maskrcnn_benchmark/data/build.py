@@ -30,7 +30,6 @@ def build_dataset(dataset_list, transforms, dataset_catalog, is_train=True):
             "dataset_list should be a list of strings, got {}".format(dataset_list)
         )
     datasets = []
-    idx_start = 0
     for dataset_name in dataset_list:
         data = dataset_catalog.get(dataset_name)
         factory = getattr(D, data["factory"])
@@ -42,11 +41,9 @@ def build_dataset(dataset_list, transforms, dataset_catalog, is_train=True):
         if data["factory"] == "PascalVOCDataset":
             args["use_difficult"] = not is_train
         args["transforms"] = transforms
-        args["idx_start"] = idx_start
         # make dataset from factory
         dataset = factory(**args)
         datasets.append(dataset)
-        idx_start = len(dataset)
 
     # for testing, return a list of datasets
     if not is_train:
@@ -61,7 +58,6 @@ def build_dataset(dataset_list, transforms, dataset_catalog, is_train=True):
 
 
 def make_data_sampler(dataset, shuffle, distributed):
-    # shuffle=False
     if distributed:
         return samplers.DistributedSampler(dataset, shuffle=shuffle)
     if shuffle:
@@ -90,8 +86,6 @@ def _compute_aspect_ratios(dataset):
 def make_batch_data_sampler(
     dataset, sampler, aspect_grouping, images_per_batch, num_iters=None, start_iter=0
 ):
-    # aspect_grouping = []
-    # print('aspect_grouping: ', aspect_grouping, num_iters)
     if aspect_grouping:
         if not isinstance(aspect_grouping, (list, tuple)):
             aspect_grouping = [aspect_grouping]
@@ -111,7 +105,7 @@ def make_batch_data_sampler(
     return batch_sampler
 
 
-def make_data_loader(cfg, is_train=True, is_distributed=False, start_iter=0, is_for_period=False, if_return_dataset=False):
+def make_data_loader(cfg, is_train=True, is_distributed=False, start_iter=0, is_for_period=False):
     num_gpus = get_world_size()
     if is_train:
         images_per_batch = cfg.SOLVER.IMS_PER_BATCH
@@ -184,12 +178,5 @@ def make_data_loader(cfg, is_train=True, is_distributed=False, start_iter=0, is_
     if is_train or is_for_period:
         # during training, a single (possibly concatenated) data_loader is returned
         assert len(data_loaders) == 1
-        if if_return_dataset:
-            return data_loaders[0], datasets[0]
-        else:
-            return data_loaders[0]
-
-    if if_return_dataset:
-        return data_loaders, datasets
-    else:
-        return data_loaders
+        return data_loaders[0]
+    return data_loaders

@@ -144,7 +144,8 @@ def do_train(
                 expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
                 output_folder=None,
             )
-            writer.add_scalar('metrics_eval/AP', inference_results[0].results['bbox']['AP'], iteration)
+            if inference_results is not None:
+                writer.add_scalar('metrics_eval/AP', inference_results[0].results['bbox']['AP'], iteration)
             synchronize()
             model.train()
             with torch.no_grad():
