@@ -48,6 +48,7 @@ def do_train(
     optimizer,
     scheduler,
     checkpointer,
+    writer,
     device,
     checkpoint_period,
     test_period,
@@ -75,6 +76,7 @@ def do_train(
             logger.error(f"Iteration={iteration + 1} || Image Ids used for training {_} || targets Length={[len(target) for target in targets]}" )
             continue
         data_time = time.time() - end
+
         iteration = iteration + 1
         arguments["iteration"] = iteration
 
@@ -123,12 +125,13 @@ def do_train(
                     memory=torch.cuda.max_memory_allocated() / 1024.0 / 1024.0,
                 )
             )
+        writer.add_scalar('loss_train/loss', losses_reduced.item(), iteration)
         if iteration % checkpoint_period == 0:
             checkpointer.save("model_{:07d}".format(iteration), **arguments)
         if data_loader_val is not None and test_period > 0 and iteration % test_period == 0:
             meters_val = MetricLogger(delimiter="  ")
             synchronize()
-            _ = inference(  # The result can be used for additional logging, e. g. for TensorBoard
+            inference_results = inference(  # The result can be used for additional logging, e. g. for TensorBoard
                 model,
                 # The method changes the segmentation mask format in a data loader,
                 # so every time a new data loader is created:
@@ -141,6 +144,7 @@ def do_train(
                 expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
                 output_folder=None,
             )
+            writer.add_scalar('metrics_eval/AP', inference_results[0].results['bbox']['AP'], iteration)
             synchronize()
             model.train()
             with torch.no_grad():

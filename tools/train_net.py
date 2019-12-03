@@ -25,6 +25,8 @@ from maskrcnn_benchmark.utils.imports import import_file
 from maskrcnn_benchmark.utils.logger import setup_logger
 from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
 
+from tensorboardX import SummaryWriter
+
 # See if we can use apex.DistributedDataParallel instead of the torch default,
 # and enable mixed-precision via apex.amp
 try:
@@ -80,6 +82,8 @@ def train(cfg, local_rank, distributed):
 
     checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD
 
+    writer = SummaryWriter(output_dir)
+
     do_train(
         cfg,
         model,
@@ -88,6 +92,7 @@ def train(cfg, local_rank, distributed):
         optimizer,
         scheduler,
         checkpointer,
+        writer,
         device,
         checkpoint_period,
         test_period,
