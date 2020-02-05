@@ -137,7 +137,7 @@ class RPNModule(torch.nn.Module):
         self.box_selector_test = box_selector_test
         self.loss_evaluator = loss_evaluator
 
-    def forward(self, images, features, targets=None):
+    def forward(self, images, features, targets=None, extra_bboxes=None):
         """
         Arguments:
             images (ImageList): images for which we want to compute the predictions
@@ -153,7 +153,11 @@ class RPNModule(torch.nn.Module):
                 testing, it is an empty dict.
         """
         objectness, rpn_box_regression = self.head(features)
+
         anchors = self.anchor_generator(images, features)
+
+        if extra_bboxes is not None:
+            return self._forward_test_extra(anchors, objectness, rpn_box_regression, extra_bboxes=extra_bboxes)
 
         if self.training:
             return self._forward_train(anchors, objectness, rpn_box_regression, targets)
@@ -196,6 +200,18 @@ class RPNModule(torch.nn.Module):
             boxes = [box[ind] for box, ind in zip(boxes, inds)]
         return boxes, {}
 
+    def _forward_test_extra(self, anchors, objectness, rpn_box_regression, extra_bboxes=None):
+        boxes = self.box_selector_test(anchors, objectness, rpn_box_regression, extra_bboxes=extra_bboxes)
+        if self.cfg.MODEL.RPN_ONLY:
+            # For end-to-end models, the RPN proposals are an intermediate state
+            # and don't bother to sort them in decreasing score order. For RPN-only
+            # models, the proposals are the final output and we return them in
+            # high-to-low confidence order.
+            inds = [
+                box.get_field("objectness").sort(descending=True)[1] for box in boxes
+            ]
+            boxes = [box[ind] for box, ind in zip(boxes, inds)]
+        return boxes, {}
 
 def build_rpn(cfg, in_channels):
     """

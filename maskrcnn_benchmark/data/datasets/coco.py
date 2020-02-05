@@ -38,7 +38,7 @@ def has_valid_annotation(anno):
 
 class COCODataset(torchvision.datasets.coco.CocoDetection):
     def __init__(
-        self, ann_file, root, remove_images_without_annotations, transforms=None
+        self, ann_file, root, remove_images_without_annotations, transforms=None, idx_start=0
     ):
         super(COCODataset, self).__init__(root, ann_file)
         # sort indices for reproducible results
@@ -63,7 +63,9 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
             v: k for k, v in self.json_category_id_to_contiguous_id.items()
         }
         self.id_to_img_map = {k: v for k, v in enumerate(self.ids)}
+        print('----', len(self.id_to_img_map.keys()))
         self._transforms = transforms
+        self.idx_start = idx_start
 
     def __getitem__(self, idx):
         img, anno = super(COCODataset, self).__getitem__(idx)
@@ -96,9 +98,14 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         if self._transforms is not None:
             img, target = self._transforms(img, target)
 
+        target.add_field("idx", idx+self.idx_start)
+        # return img, target, idx+self.idx_start
         return img, target, idx
 
     def get_img_info(self, index):
         img_id = self.id_to_img_map[index]
         img_data = self.coco.imgs[img_id]
         return img_data
+
+    def return_id_to_img_map(self):
+        return self.id_to_img_map

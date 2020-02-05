@@ -66,9 +66,16 @@ class RPNPostProcessor(torch.nn.Module):
         for gt_box in gt_boxes:
             gt_box.add_field("objectness", torch.ones(len(gt_box), device=device))
 
+        gt_boxes_new = []
+        for proposal, gt_box in zip(proposals, gt_boxes):
+            if gt_box.size !=  proposal.size:
+                gt_boxes_new.append(gt_box.resize(proposal.size))
+            else:
+                gt_boxes_new.append(gt_box)
+
         proposals = [
             cat_boxlist((proposal, gt_box))
-            for proposal, gt_box in zip(proposals, gt_boxes)
+            for proposal, gt_box in zip(proposals, gt_boxes_new)
         ]
 
         return proposals
@@ -111,6 +118,7 @@ class RPNPostProcessor(torch.nn.Module):
         for proposal, score, im_shape in zip(proposals, objectness, image_shapes):
             boxlist = BoxList(proposal, im_shape, mode="xyxy")
             boxlist.add_field("objectness", score)
+            # print(score.dtype, score.shape, proposal.dtype, proposal.shape)
             boxlist = boxlist.clip_to_image(remove_empty=False)
             boxlist = remove_small_boxes(boxlist, self.min_size)
             boxlist = boxlist_nms(
@@ -122,7 +130,7 @@ class RPNPostProcessor(torch.nn.Module):
             result.append(boxlist)
         return result
 
-    def forward(self, anchors, objectness, box_regression, targets=None):
+    def forward(self, anchors, objectness, box_regression, targets=None, extra_bboxes=None):
         """
         Arguments:
             anchors: list[list[BoxList]]
@@ -145,9 +153,15 @@ class RPNPostProcessor(torch.nn.Module):
         if num_levels > 1:
             boxlists = self.select_over_all_levels(boxlists)
 
+        # print('--1', boxlists, boxlists[0].fields())
+
         # append ground-truth bboxes to proposals
         if self.training and targets is not None:
             boxlists = self.add_gt_proposals(boxlists, targets)
+            
+        if extra_bboxes is not None:
+            boxlists = self.add_gt_proposals(boxlists, extra_bboxes)
+            # print('--2', boxlists, boxlists[0].fields())
 
         return boxlists
 

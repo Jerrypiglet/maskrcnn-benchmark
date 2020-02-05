@@ -30,7 +30,7 @@ class GeneralizedRCNN(nn.Module):
         self.rpn = build_rpn(cfg, self.backbone.out_channels)
         self.roi_heads = build_roi_heads(cfg, self.backbone.out_channels)
 
-    def forward(self, images, targets=None):
+    def forward(self, images, targets=None, extra_bboxes=None, image_sizes_after_transform=None):
         """
         Arguments:
             images (list[Tensor] or ImageList): images to be processed
@@ -47,9 +47,18 @@ class GeneralizedRCNN(nn.Module):
             raise ValueError("In training mode, targets should be passed")
         images = to_image_list(images)
         features = self.backbone(images.tensors)
+        # proposals, proposal_losses = self.rpn(images, features, targets, extra_bboxes=extra_bboxes)
         proposals, proposal_losses = self.rpn(images, features, targets)
+        # print(proposals, proposals[0].bbox.device, proposals[0].fields())
+        if extra_bboxes is not None:
+            # print(proposals)
+            extra_bboxes = extra_bboxes.resize(image_sizes_after_transform)
+            extra_bboxes.size = proposals[0].size
+            # print(extra_bboxes)
+            proposals = [extra_bboxes]
+            
         if self.roi_heads:
-            x, result, detector_losses = self.roi_heads(features, proposals, targets)
+            x, result, detector_losses = self.roi_heads(features, proposals, targets, if_reduce_bboxes=extra_bboxes is None)
         else:
             # RPN-only models don't have roi_heads
             x = features
@@ -62,4 +71,4 @@ class GeneralizedRCNN(nn.Module):
             losses.update(proposal_losses)
             return losses
 
-        return result
+        return result, proposals

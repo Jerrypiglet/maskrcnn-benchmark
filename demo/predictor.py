@@ -196,7 +196,7 @@ class COCODemo(object):
         )
         return transform
 
-    def run_on_opencv_image(self, image):
+    def run_on_opencv_image(self, image, extra_bboxes=None):
         """
         Arguments:
             image (np.ndarray): an image as returned by OpenCV
@@ -206,8 +206,14 @@ class COCODemo(object):
                 of the detection properties can be found in the fields of
                 the BoxList via `prediction.fields()`
         """
-        predictions = self.compute_prediction(image)
-        top_predictions = self.select_top_predictions(predictions)
+        predictions, proposals = self.compute_prediction(image, extra_bboxes=extra_bboxes)
+        if extra_bboxes is None:
+            top_predictions = self.select_top_predictions(predictions)
+        else:
+            top_predictions = predictions
+            top_predictions.add_field(
+                "labels", torch.full((len(top_predictions),), 1, dtype=torch.int64, device=top_predictions.bbox.device)
+            )
 
         result = image.copy()
         if self.show_mask_heatmaps:
@@ -217,11 +223,12 @@ class COCODemo(object):
             result = self.overlay_mask(result, top_predictions)
         if self.cfg.MODEL.KEYPOINT_ON:
             result = self.overlay_keypoints(result, top_predictions)
-        result = self.overlay_class_names(result, top_predictions)
+        if extra_bboxes is None:
+            result = self.overlay_class_names(result, top_predictions)
 
-        return result
+        return result, top_predictions, proposals
 
-    def compute_prediction(self, original_image):
+    def compute_prediction(self, original_image, extra_bboxes=None):
         """
         Arguments:
             original_image (np.ndarray): an image as returned by OpenCV
@@ -233,13 +240,14 @@ class COCODemo(object):
         """
         # apply pre-processing to image
         image = self.transforms(original_image)
+        image_sizes_after_transform = (image.shape[2], image.shape[1]) # (width, height)
         # convert to an ImageList, padded so that it is divisible by
         # cfg.DATALOADER.SIZE_DIVISIBILITY
         image_list = to_image_list(image, self.cfg.DATALOADER.SIZE_DIVISIBILITY)
         image_list = image_list.to(self.device)
         # compute predictions
         with torch.no_grad():
-            predictions = self.model(image_list)
+            predictions, proposals = self.model(image_list, extra_bboxes=extra_bboxes, image_sizes_after_transform=image_sizes_after_transform)
         predictions = [o.to(self.cpu_device) for o in predictions]
 
         # always single image is passed at a time
@@ -256,7 +264,7 @@ class COCODemo(object):
             # always single image is passed at a time
             masks = self.masker([masks], [prediction])[0]
             prediction.add_field("mask", masks)
-        return prediction
+        return prediction, proposals
 
     def select_top_predictions(self, predictions):
         """
@@ -342,7 +350,7 @@ class COCODemo(object):
         scores = keypoints.get_field("logits")
         kps = torch.cat((kps[:, :, 0:2], scores[:, :, None]), dim=2).numpy()
         for region in kps:
-            image = vis_keypoints(image, region.transpose((1, 0)))
+            image = vis_keypoints(image, region.transpose((1, 0)), kp_thresh=-100.)
         return image
 
     def create_mask_montage(self, image, predictions):
@@ -461,11 +469,16 @@ def vis_keypoints(img, kps, kp_thresh=2, alpha=0.7):
         if kps[2, i1] > kp_thresh:
             cv2.circle(
                 kp_mask, p1,
-                radius=3, color=colors[l], thickness=-1, lineType=cv2.LINE_AA)
+                radius=2, color=colors[l], thickness=-1, lineType=cv2.LINE_AA)
+            cv2.putText(
+                kp_mask, dataset_keypoints[i1]+' %.2f'%kps[2, i1], p1, cv2.FONT_HERSHEY_SIMPLEX, .3, (255, 255, 255), 1
+            )
         if kps[2, i2] > kp_thresh:
             cv2.circle(
                 kp_mask, p2,
-                radius=3, color=colors[l], thickness=-1, lineType=cv2.LINE_AA)
-
+                radius=2, color=colors[l], thickness=-1, lineType=cv2.LINE_AA)
+            cv2.putText(
+                kp_mask, dataset_keypoints[i2]+' %.2f'%kps[2, i2], p2, cv2.FONT_HERSHEY_SIMPLEX, .3, (255, 255, 255), 1
+            )
     # Blend the keypoints.
     return cv2.addWeighted(img, 1.0 - alpha, kp_mask, alpha, 0)
