@@ -1,5 +1,6 @@
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
+  WEIGHT: "/home/ruizhu/Documents/Projects/adobe_rui_camera-calibration-redux/maskrcnn/pretrained/e2e_faster_rcnn_fbnet_chamv1a_600.pth"
   BACKBONE:
     CONV_BODY: FBNet
   FBNET:

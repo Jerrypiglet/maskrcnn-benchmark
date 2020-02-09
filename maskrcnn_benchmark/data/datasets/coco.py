@@ -90,6 +90,7 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
 
         if anno and "keypoints" in anno[0]:
             keypoints = [obj["keypoints"] for obj in anno]
+            # print(len(keypoints), keypoints[0], len(keypoints[0]), len(keypoints[1]))
             keypoints = PersonKeypoints(keypoints, img.size)
             target.add_field("keypoints", keypoints)
 

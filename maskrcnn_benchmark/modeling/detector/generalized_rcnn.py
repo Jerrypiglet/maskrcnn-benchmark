@@ -49,7 +49,7 @@ class GeneralizedRCNN(nn.Module):
         features = self.backbone(images.tensors)
         # proposals, proposal_losses = self.rpn(images, features, targets, extra_bboxes=extra_bboxes)
         proposals, proposal_losses = self.rpn(images, features, targets)
-        # print(proposals, proposals[0].bbox.device, proposals[0].fields())
+        # print(proposals, proposals[0].bbox.shape, proposals[0].fields())
         if extra_bboxes is not None:
             # print(proposals)
             extra_bboxes = extra_bboxes.resize(image_sizes_after_transform)
