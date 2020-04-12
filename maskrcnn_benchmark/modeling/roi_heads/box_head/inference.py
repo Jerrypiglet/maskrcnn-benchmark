@@ -72,7 +72,8 @@ class PostProcessor(nn.Module):
 
         num_classes = class_prob.shape[1]
         # print('====num_classes', num_classes)
-
+        
+        # print('>>>', proposals.shape, class_prob.shape)
         proposals = proposals.split(boxes_per_image, dim=0)
         class_prob = class_prob.split(boxes_per_image, dim=0)
 
@@ -80,10 +81,14 @@ class PostProcessor(nn.Module):
         for prob, boxes_per_img, image_shape in zip(
             class_prob, proposals, image_shapes
         ):
+            # print('--', boxes_per_img.shape, prob.shape, image_shape)
             boxlist = self.prepare_boxlist(boxes_per_img, prob, image_shape)
+            # print(boxlist)
             boxlist = boxlist.clip_to_image(remove_empty=False)
+            # print(boxlist)
             if not self.bbox_aug_enabled:  # If bbox aug is enabled, we will do it later
                 boxlist = self.filter_results(boxlist, num_classes)
+            # print(boxlist)
             results.append(boxlist)
         return results
 

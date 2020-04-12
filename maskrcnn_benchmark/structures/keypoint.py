@@ -78,6 +78,12 @@ class Keypoints(object):
     def get_field(self, field):
         return self.extra_fields[field]
 
+    def has_field(self, field):
+        return field in self.extra_fields
+
+    def fields(self):
+        return list(self.extra_fields.keys())
+
     def __repr__(self):
         s = self.__class__.__name__ + '('
         s += 'num_instances={}, '.format(len(self.keypoints))

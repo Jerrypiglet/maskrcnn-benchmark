@@ -23,7 +23,9 @@ class CombinedROIHeads(torch.nn.ModuleDict):
     def forward(self, features, proposals, targets=None, if_reduce_bboxes=True):
         losses = {}
         # TODO rename x to roi_box_features, if it doesn't increase memory consumption
+        # print('=+++++++proposals', proposals, proposals[0].fields(), if_reduce_bboxes)
         x, detections, loss_box = self.box(features, proposals, targets, if_reduce_bboxes=if_reduce_bboxes)
+        # print('=+++++++detections', detections, detections[0].fields())
         losses.update(loss_box)
         if self.cfg.MODEL.MASK_ON:
             mask_features = features

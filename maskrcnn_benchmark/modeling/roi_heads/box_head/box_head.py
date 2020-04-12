@@ -47,6 +47,7 @@ class ROIBoxHead(torch.nn.Module):
         x = self.feature_extractor(features, proposals)
         # final classifier that converts the features into predictions
         class_logits, box_regression = self.predictor(x)
+        print(class_logits.shape, box_regression.shape, proposals, if_reduce_bboxes)
 
         if not self.training:
             if if_reduce_bboxes:

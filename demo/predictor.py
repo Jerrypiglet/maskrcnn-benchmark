@@ -256,6 +256,7 @@ class COCODemo(object):
         # reshape prediction (a BoxList) into the original image size
         height, width = original_image.shape[:-1]
         prediction = prediction.resize((width, height))
+        proposals = proposals[0].resize((width, height))
 
         if prediction.has_field("mask"):
             # if we have masks, paste the masks in the right position
@@ -350,7 +351,7 @@ class COCODemo(object):
         scores = keypoints.get_field("logits")
         kps = torch.cat((kps[:, :, 0:2], scores[:, :, None]), dim=2).numpy()
         for region in kps:
-            image = vis_keypoints(image, region.transpose((1, 0)), kp_thresh=-100.)
+            image = vis_keypoints(image, region.transpose((1, 0)), kp_thresh=-1000)
         return image
 
     def create_mask_montage(self, image, predictions):
@@ -470,15 +471,19 @@ def vis_keypoints(img, kps, kp_thresh=2, alpha=0.7):
             cv2.circle(
                 kp_mask, p1,
                 radius=2, color=colors[l], thickness=-1, lineType=cv2.LINE_AA)
-            cv2.putText(
-                kp_mask, dataset_keypoints[i1]+' %.2f'%kps[2, i1], p1, cv2.FONT_HERSHEY_SIMPLEX, .3, (255, 255, 255), 1
-            )
+            if 'eye' in dataset_keypoints[i1] or 'ankle' in dataset_keypoints[i1]:
+                cv2.putText(
+                    kp_mask, dataset_keypoints[i1]+' %.2f'%kps[2, i1], p1, cv2.FONT_HERSHEY_SIMPLEX, .4, (255, 255, 255), 1
+                )
         if kps[2, i2] > kp_thresh:
+            # if dataset_keypoints[i2] in ['left_ankle']:
+            #     continue
             cv2.circle(
                 kp_mask, p2,
                 radius=2, color=colors[l], thickness=-1, lineType=cv2.LINE_AA)
-            cv2.putText(
-                kp_mask, dataset_keypoints[i2]+' %.2f'%kps[2, i2], p2, cv2.FONT_HERSHEY_SIMPLEX, .3, (255, 255, 255), 1
-            )
+            if 'eye' in dataset_keypoints[i2] or 'ankle' in dataset_keypoints[i2]:
+                cv2.putText(
+                    kp_mask, dataset_keypoints[i2]+' %.2f'%kps[2, i2], p2, cv2.FONT_HERSHEY_SIMPLEX, .4, (255, 255, 255), 1
+                )
     # Blend the keypoints.
     return cv2.addWeighted(img, 1.0 - alpha, kp_mask, alpha, 0)
